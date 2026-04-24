@@ -2,7 +2,7 @@ name: Daily SafeScan Bid Scrape
 
 on:
   schedule:
-    - cron: '0 13 * * *'   # 9:00 AM Florida time
+    - cron: '0 13 * * *'   # 9:00 AM Florida time every day
   workflow_dispatch:
 
 jobs:
@@ -23,5 +23,5 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
-      - name: Run Daily Scraper
+      - name: Run Scraper
         run: python scraper.py
