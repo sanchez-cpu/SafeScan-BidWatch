@@ -2,7 +2,7 @@ name: Daily SafeScan Bid Scrape
 
 on:
   schedule:
-    - cron: '0 13 * * *'   # Runs every day at 9:00 AM Florida time
+    - cron: '0 13 * * *'   # 9:00 AM Florida time
   workflow_dispatch:
 
 jobs:
@@ -10,7 +10,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout repository
+      - name: Checkout code
         uses: actions/checkout@v4
 
       - name: Set up Python
@@ -23,12 +23,5 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
-      - name: Run Scraper and Send Notifications
-        run: python -c "
-from scraper import run_scraper
-from notifier import send_telegram_alert
-new_bids = run_scraper()
-if new_bids:
-    send_telegram_alert(new_bids)
-print('Daily scrape completed successfully.')
-"
+      - name: Run Daily Scraper
+        run: python scraper.py
