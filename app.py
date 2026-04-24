@@ -3,9 +3,32 @@ import pandas as pd
 from database import get_all_bids
 from datetime import datetime
 
-st.set_page_config(page_title="SafeScan BidWatch", layout="wide", page_icon="🔍")
+# === PAGE CONFIG + PWA SUPPORT ===
+st.set_page_config(
+    page_title="SafeScan BidWatch",
+    page_icon="🔍",
+    layout="wide",
+    initial_sidebar_state="expanded"
+)
 
-# SafeScan Color Scheme
+# PWA Manifest (Install as App on Phone)
+st.markdown("""
+<link rel="manifest" href="data:application/manifest+json,{
+    \\"name\\": \\"SafeScan BidWatch\\",
+    \\"short_name\\": \\"SafeScan\\",
+    \\"start_url\\": \\"/\\",
+    \\"display\\": \\"standalone\\",
+    \\"background_color\\": \\"#ffffff\\",
+    \\"theme_color\\": \\"#facc15\\",
+    \\"icons\\": [{
+        \\"src\\": \\"https://raw.githubusercontent.com/sanchez-cpu/SafeScan-BidWatch/main/SafeScan_Logo.png\\",
+        \\"sizes\\": \\"192x192\\",
+        \\"type\\": \\"image/png\\"
+    }]
+}">
+""", unsafe_allow_html=True)
+
+# === CUSTOM STYLING ===
 st.markdown("""
     <style>
     .main { background-color: #ffffff; }
@@ -15,55 +38,74 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# Header
+# === HEADER ===
 st.title("🔍 SafeScan BidWatch")
-st.caption("**Utility Locating Services** — Florida Government Bid Monitor")
-
-# Tabs
-tab1, tab2, tab3 = st.tabs(["📋 All Bids", "🔥 New & Matching", "📊 Statistics"])
+st.caption("**Utility Locating Services** — Florida Procurement Intelligence")
 
 df = get_all_bids()
 
-# Filters (shared)
-search = st.sidebar.text_input("🔍 Search", placeholder="locating, 96291, 811, utility locate...")
+# === SIDEBAR FILTERS ===
+st.sidebar.header("🔍 Filters")
+search = st.sidebar.text_input("Search Title or Keywords", placeholder="locating, 96291, 811...")
+
 if not df.empty and search:
-    df_filtered = df[
+    filtered = df[
         df['title'].str.contains(search, case=False, na=False) | 
         df['keywords_matched'].str.contains(search, case=False, na=False)
     ]
 else:
-    df_filtered = df
+    filtered = df
+
+# === TABS ===
+tab1, tab2, tab3 = st.tabs(["📋 All Bids", "🗑️ Manage Bids", "📊 Stats"])
 
 with tab1:
-    st.subheader("All Tracked Bids")
-    if not df.empty:
+    if not filtered.empty:
         st.dataframe(
-            df[['title', 'agency', 'url', 'first_seen', 'keywords_matched']],
+            filtered[['title', 'agency', 'url', 'first_seen', 'keywords_matched']],
             use_container_width=True,
             column_config={
-                "url": st.column_config.LinkColumn("View Bid", display_text="Open →"),
+                "url": st.column_config.LinkColumn("Open Bid", display_text="Open →"),
                 "first_seen": st.column_config.DatetimeColumn("First Seen"),
             },
             hide_index=True
         )
-        st.download_button("📥 Export All Bids", df.to_csv(index=False), "all_bids.csv")
+        st.download_button("📥 Export CSV", filtered.to_csv(index=False), "safescan_bids.csv")
     else:
-        st.info("No bids yet.")
+        st.info("No bids found. Run the scraper.")
 
 with tab2:
-    st.subheader("🔥 New & Locating Matches")
+    st.subheader("🗑️ Remove Unwanted Bids")
     if not df.empty:
-        recent = df[pd.to_datetime(df['first_seen'], errors='coerce') > pd.Timestamp.now() - pd.Timedelta(days=7)]
-        matches = df[df['keywords_matched'] != ""]
-        
-        st.dataframe(
-            matches[['title', 'agency', 'url', 'first_seen', 'keywords_matched']],
-            use_container_width=True,
-            column_config={"url": st.column_config.LinkColumn("Open →")},
-            hide_index=True
+        selected_ids = st.multiselect(
+            "Select bids to permanently delete",
+            options=df['id'].tolist(),
+            format_func=lambda x: df[df['id']==x]['title'].iloc[0][:80] + "..."
         )
+        
+        if st.button("🗑️ Delete Selected Bids"):
+            if selected_ids:
+                import sqlite3
+                conn = sqlite3.connect("bids.db")
+                conn.execute("DELETE FROM bids WHERE id IN (" + ",".join(["?"]*len(selected_ids)) + ")", selected_ids)
+                conn.commit()
+                conn.close()
+                st.success(f"Deleted {len(selected_ids)} bids!")
+                st.rerun()
+            else:
+                st.warning("No bids selected.")
+        
+        if st.button("⚠️ Clear ALL Bids (Dangerous)"):
+            if st.checkbox("I understand this deletes everything"):
+                import sqlite3
+                conn = sqlite3.connect("bids.db")
+                conn.execute("DELETE FROM bids")
+                conn.commit()
+                conn.close()
+                st.success("All bids cleared!")
+                st.rerun()
     else:
-        st.info("Run the scraper to see matches.")
+        st.info("No bids to manage.")
 
 with tab3:
     st.subheader("📊 Statistics")
@@ -72,17 +114,25 @@ with tab3:
         c1.metric("Total Bids", len(df))
         c2.metric("Locating Matches", len(df[df['keywords_matched'] != ""]))
         c3.metric("New This Week", len(df[pd.to_datetime(df['first_seen'], errors='coerce') > pd.Timestamp.now() - pd.Timedelta(days=7)]))
-        c4.metric("Agencies Tracked", df['agency'].nunique())
+        c4.metric("Agencies", df['agency'].nunique())
     else:
         st.info("No data yet.")
 
-# Run Button
-if st.button("🚀 Run Scraper Now", type="primary", use_container_width=True):
-    with st.spinner("Scanning Florida counties for utility locating bids..."):
-        from scraper import run_scraper
-        from notifier import send_telegram_alert
-        new_bids = run_scraper()
-        if new_bids:
-            send_telegram_alert(new_bids)
-    st.success(f"✅ Scan complete! Found {len(new_bids)} new bids.")
-    st.rerun()
+# === RUN BUTTONS ===
+col1, col2 = st.columns(2)
+
+with col1:
+    if st.button("🚀 Run Regular Scraper (All 67 Counties)", type="primary"):
+        with st.spinner("Scanning all Florida counties..."):
+            from scraper import run_scraper
+            new_bids = run_scraper()
+        st.success(f"✅ Regular scan done! Found {len(new_bids)} new bids.")
+        st.rerun()
+
+with col2:
+    if st.button("🔐 Run Premium Scraper (Jacksonville–Orlando)", type="secondary"):
+        with st.spinner("Running premium DemandStar scan..."):
+            from premium_scraper import run_premium_scraper
+            new_bids = run_premium_scraper()
+        st.success(f"✅ Premium scan done! Found {len(new_bids)} bids.")
+        st.rerun()
