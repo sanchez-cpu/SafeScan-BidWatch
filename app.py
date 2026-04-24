@@ -3,7 +3,7 @@ import pandas as pd
 from database import get_all_bids
 from datetime import datetime
 
-# === PAGE CONFIG + PWA SUPPORT ===
+# === PAGE CONFIG ===
 st.set_page_config(
     page_title="SafeScan BidWatch",
     page_icon="🔍",
@@ -11,7 +11,7 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# PWA Manifest (Install as App on Phone)
+# === PWA SUPPORT ===
 st.markdown("""
 <link rel="manifest" href="data:application/manifest+json,{
     \\"name\\": \\"SafeScan BidWatch\\",
@@ -19,7 +19,7 @@ st.markdown("""
     \\"start_url\\": \\"/\\",
     \\"display\\": \\"standalone\\",
     \\"background_color\\": \\"#ffffff\\",
-    \\"theme_color\\": \\"#facc15\\",
+    \\"theme_color\\": \\"#007BFF\\",
     \\"icons\\": [{
         \\"src\\": \\"https://raw.githubusercontent.com/sanchez-cpu/SafeScan-BidWatch/main/SafeScan_Logo.png\\",
         \\"sizes\\": \\"192x192\\",
@@ -28,23 +28,44 @@ st.markdown("""
 }">
 """, unsafe_allow_html=True)
 
-# === CUSTOM STYLING ===
+# === CUSTOM STYLING (Matches SafeScanutilities.com) ===
 st.markdown("""
     <style>
-    .main { background-color: #ffffff; }
-    h1, h2 { color: #000000; }
-    .stButton>button { background-color: #facc15; color: black; font-weight: bold; }
-    .stButton>button:hover { background-color: #eab308; }
+    .main {
+        background-color: #ffffff;
+    }
+    h1, h2, h3 {
+        color: #1a1a2e;
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    }
+    .stButton>button {
+        background-color: #007BFF;
+        color: white;
+        font-weight: 600;
+        border-radius: 8px;
+        padding: 10px 24px;
+    }
+    .stButton>button:hover {
+        background-color: #0056b3;
+    }
+    .stMetric {
+        background-color: #f8f9fa;
+        border-radius: 12px;
+        padding: 16px;
+    }
     </style>
 """, unsafe_allow_html=True)
 
-# === HEADER ===
+# === HEADER (Matches your website vibe) ===
 st.title("🔍 SafeScan BidWatch")
-st.caption("**Utility Locating Services** — Florida Procurement Intelligence")
+st.markdown("""
+**Utility Locating Services** — Florida Procurement Intelligence  
+*Scan Safe, Build Confident*
+""")
 
 df = get_all_bids()
 
-# === SIDEBAR FILTERS ===
+# === SIDEBAR ===
 st.sidebar.header("🔍 Filters")
 search = st.sidebar.text_input("Search Title or Keywords", placeholder="locating, 96291, 811...")
 
@@ -114,7 +135,7 @@ with tab3:
         c1.metric("Total Bids", len(df))
         c2.metric("Locating Matches", len(df[df['keywords_matched'] != ""]))
         c3.metric("New This Week", len(df[pd.to_datetime(df['first_seen'], errors='coerce') > pd.Timestamp.now() - pd.Timedelta(days=7)]))
-        c4.metric("Agencies", df['agency'].nunique())
+        c4.metric("Agencies Tracked", df['agency'].nunique())
     else:
         st.info("No data yet.")
 
@@ -131,8 +152,4 @@ with col1:
 
 with col2:
     if st.button("🔐 Run Premium Scraper (Jacksonville–Orlando)", type="secondary"):
-        with st.spinner("Running premium DemandStar scan..."):
-            from premium_scraper import run_premium_scraper
-            new_bids = run_premium_scraper()
-        st.success(f"✅ Premium scan done! Found {len(new_bids)} bids.")
-        st.rerun()
+        with
