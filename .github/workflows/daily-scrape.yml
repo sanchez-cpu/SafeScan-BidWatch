@@ -2,7 +2,7 @@ name: Daily SafeScan Bid Scrape
 
 on:
   schedule:
-    - cron: '0 13 * * *'   # 9:00 AM Florida time
+    - cron: '0 13 * * *'   # Runs at 9:00 AM Florida time every day
   workflow_dispatch:
 
 jobs:
